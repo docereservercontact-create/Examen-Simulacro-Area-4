@@ -2,14 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Examen de Español</title>
+<title>Examen UNAM</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 body { font-family: Arial; margin:0; background:#f4f6f9; }
 
-/* LOGIN */
 #inicio, #resultados {
     display:flex; flex-direction:column;
     align-items:center; justify-content:center;
@@ -25,24 +24,13 @@ button {
     cursor:pointer;
 }
 
-/* EXAMEN */
 #examen { display:none; }
 
 .container { display:flex; height:100vh; }
 
-/* PDF */
-.left {
-    width:50%;
-    background:black;
-}
+.left { width:50%; background:black; }
+.left iframe { width:100%; height:100%; border:none; }
 
-.left iframe {
-    width:100%;
-    height:100%;
-    border:none;
-}
-
-/* RESPUESTAS */
 .right {
     width:50%;
     overflow-y:scroll;
@@ -69,190 +57,179 @@ button {
 
 <body>
 
-<!-- LOGIN -->
 <div id="inicio">
-    <h2>Examen de Español</h2>
+    <h2>Examen</h2>
     <input id="nombre" placeholder="Usuario">
     <input id="cuenta" placeholder="Contraseña">
     <button onclick="iniciarExamen()">Iniciar</button>
 </div>
 
-<!-- EXAMEN -->
 <div id="examen">
     <div class="timer" id="timer"></div>
 
     <div class="container">
-
-        <!-- PDF -->
         <div class="left">
             <iframe src="examen.pdf"></iframe>
         </div>
 
-        <!-- RESPUESTAS -->
         <div class="right" id="respuestas"></div>
-
     </div>
 </div>
 
-<!-- RESULTADOS -->
 <div id="resultados"></div>
 
 <script>
 
-// 👨‍🎓 ALUMNOS
-const alumnos = [
-    {nombre:"p1", cuenta:"1"},
-    {nombre:"p2", cuenta:"1"},
-    {nombre:"p3", cuenta:"1"}
-];
-
 // CONFIG
 const TOTAL_PREGUNTAS = 120;
-let tiempo = 3600; // 1 hora
-
+let tiempo = 3600;
 let intervalo;
 let nombreAlumno, cuentaAlumno;
-let progresoTexto = "0/120";
 
-// 🚀 INICIAR
-function iniciarExamen() {
+// 🔑 CLAVE
+const clave = [...Array(120)].map((_,i)=>({
+    materia:
+        i<10?"Física":
+        i<20?"Literatura":
+        i<30?"Química":
+        i<40?"Geografía":
+        i<62?"Matemáticas":
+        i<80?"Español":
+        i<90?"Biología":
+        i<100?"Historia Universal":
+        i<110?"Historia de México":
+        "Filosofía",
+    correcta: [
+"C","D","A","B","D","D","B","B","A","A",
+"A","C","D","C","D","A","A","A","A","A",
+"A","D","C","C","B","D","B","B","B","D",
+"C","D","B","B","B","B","B","D","D","A",
+"C","B","A","B","D","D","A","C","C","B",
+"A","A","D","A","A","A","A","D","D","B",
+"D","D","C","C","D","C","D","C","C","C",
+"C","C","C","A","C","D","A","C","B","D",
+"A","A","A","B","B","D","D","C","A","C",
+"B","A","B","A","A","A","A","C","B","B",
+"C","D","A","D","A","D","B","D","B","D",
+"D","C","B","A","D","C","C","C","B","C"
+][i]
+}));
 
-    nombreAlumno = document.getElementById("nombre").value.trim();
-    cuentaAlumno = document.getElementById("cuenta").value.trim();
+// INICIAR
+function iniciarExamen(){
+    nombreAlumno = document.getElementById("nombre").value;
+    cuentaAlumno = document.getElementById("cuenta").value;
 
-    let alumnoValido = alumnos.find(a =>
-        a.nombre === nombreAlumno && a.cuenta === cuentaAlumno
-    );
-
-    if (!alumnoValido) return alert("Alumno no registrado");
-
-    document.getElementById("inicio").style.display = "none";
-    document.getElementById("examen").style.display = "block";
+    document.getElementById("inicio").style.display="none";
+    document.getElementById("examen").style.display="block";
 
     generarPreguntas();
     iniciarTimer();
-    activarSeguridad();
 }
 
-// 📝 GENERAR 120
-function generarPreguntas() {
+// GENERAR
+function generarPreguntas(){
 
     let cont = document.getElementById("respuestas");
-    cont.innerHTML = "";
+    cont.innerHTML="";
 
-    for (let i = 0; i < TOTAL_PREGUNTAS; i++) {
+    for(let i=0;i<TOTAL_PREGUNTAS;i++){
 
-        cont.innerHTML += `
+        let guardada = localStorage.getItem("resp_"+cuentaAlumno+"_"+i);
+
+        cont.innerHTML+=`
         <div class="pregunta">
             <b>${i+1}</b><br>
 
-            <label><input type="radio" name="p${i}" value="A" onchange="actualizarProgreso()"> A</label>
-            <label><input type="radio" name="p${i}" value="B" onchange="actualizarProgreso()"> B</label>
-            <label><input type="radio" name="p${i}" value="C" onchange="actualizarProgreso()"> C</label>
-            <label><input type="radio" name="p${i}" value="D" onchange="actualizarProgreso()"> D</label>
+            ${["A","B","C","D"].map(l=>`
+                <label>
+                <input type="radio" name="p${i}" value="${l}"
+                ${guardada===l?"checked":""}
+                onchange="guardar(${i},'${l}')">
+                ${l}
+                </label>
+            `).join("")}
         </div>`;
     }
 
-    cont.innerHTML += `<button onclick="terminarExamen()">Enviar</button>`;
+    cont.innerHTML+=`<button onclick="terminarExamen()">Enviar</button>`;
 }
 
-// ⏱️ TIMER
-function iniciarTimer() {
+// GUARDAR
+function guardar(i,v){
+    localStorage.setItem("resp_"+cuentaAlumno+"_"+i,v);
+}
 
-    intervalo = setInterval(() => {
-
+// TIMER
+function iniciarTimer(){
+    intervalo=setInterval(()=>{
         tiempo--;
+        let min=Math.floor(tiempo/60);
+        let seg=tiempo%60;
 
-        let min = Math.floor(tiempo / 60);
-        let seg = tiempo % 60;
+        document.getElementById("timer").innerText=
+        `${min}:${seg.toString().padStart(2,'0')}`;
 
-        actualizarProgreso();
-
-        document.getElementById("timer").innerText =
-            `${min}:${seg.toString().padStart(2,'0')} | ${progresoTexto}`;
-
-        if (tiempo <= 0) terminarExamen();
-
-    }, 1000);
+        if(tiempo<=0) terminarExamen();
+    },1000);
 }
 
-// 📊 PROGRESO
-function actualizarProgreso() {
-
-    let c = 0;
-
-    for (let i = 0; i < TOTAL_PREGUNTAS; i++) {
-        if (document.querySelector(`input[name="p${i}"]:checked`)) c++;
-    }
-
-    progresoTexto = `${c}/${TOTAL_PREGUNTAS}`;
-}
-
-// 🔒 SEGURIDAD
-function activarSeguridad() {
-
-    document.addEventListener("contextmenu", e => e.preventDefault());
-
-    document.addEventListener("keydown", e => {
-        if (e.ctrlKey && ['c','v','x'].includes(e.key)) e.preventDefault();
-    });
-
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden) {
-            alert("No cambies de pestaña");
-            terminarExamen(true);
-        }
-    });
-
-    window.onbeforeunload = () => "No puedes salir";
-}
-
-// 🧾 TERMINAR
-function terminarExamen(trampa = false) {
+// TERMINAR
+function terminarExamen(){
 
     clearInterval(intervalo);
 
-    document.getElementById("examen").style.display = "none";
-    document.getElementById("resultados").style.display = "block";
+    let total=0;
+    let materias={};
+    let detalle="<h3>Detalle</h3><table border='1'><tr><th>#</th><th>Materia</th><th>Tu</th><th>Correcta</th></tr>";
 
-    let html = `
-    <h2>Resultados</h2>
-    <p>${nombreAlumno}</p>
-    <p>${cuentaAlumno}</p>
-    <p>Examen finalizado</p>
-    <button onclick="generarPDF()">Descargar PDF</button>
-    `;
+    for(let i=0;i<TOTAL_PREGUNTAS;i++){
 
-    document.getElementById("resultados").innerHTML = html;
-}
+        let resp=localStorage.getItem("resp_"+cuentaAlumno+"_"+i)||"-";
+        let correcta=clave[i].correcta;
+        let materia=clave[i].materia;
 
-// 📄 PDF RESULTADOS
-function generarPDF() {
+        if(!materias[materia]) materias[materia]={c:0,t:0};
+        materias[materia].t++;
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    doc.text("Resultados del examen", 10, 10);
-    doc.text(nombreAlumno, 10, 20);
-    doc.text(cuentaAlumno, 10, 30);
-
-    let y = 40;
-
-    for (let i = 0; i < TOTAL_PREGUNTAS; i++) {
-
-        let seleccionado = document.querySelector(`input[name="p${i}"]:checked`);
-        let resp = seleccionado ? seleccionado.value : "-";
-
-        doc.text(`P${i+1}: ${resp}`, 10, y);
-        y += 6;
-
-        if (y > 280) {
-            doc.addPage();
-            y = 20;
+        if(resp===correcta){
+            total++;
+            materias[materia].c++;
         }
+
+        let color = resp===correcta?"#c8f7c5":"#f7c5c5";
+
+        detalle+=`
+        <tr style="background:${color}">
+        <td>${i+1}</td>
+        <td>${materia}</td>
+        <td>${resp}</td>
+        <td>${correcta}</td>
+        </tr>`;
     }
 
-    doc.save("respuestas.pdf");
+    detalle+="</table>";
+
+    let html=`<h2>Resultados</h2>
+    <p><b>${nombreAlumno}</b></p>
+    <p>Total: ${total}/120</p>
+    <p>${((total/120)*100).toFixed(2)}%</p>
+
+    <h3>Por materia</h3>
+    <table border="1">
+    <tr><th>Materia</th><th>Aciertos</th><th>Total</th><th>%</th></tr>`;
+
+    for(let m in materias){
+        let ac=materias[m].c;
+        let tot=materias[m].t;
+        html+=`<tr><td>${m}</td><td>${ac}</td><td>${tot}</td><td>${((ac/tot)*100).toFixed(1)}%</td></tr>`;
+    }
+
+    html+="</table>"+detalle;
+
+    document.getElementById("examen").style.display="none";
+    document.getElementById("resultados").style.display="block";
+    document.getElementById("resultados").innerHTML=html;
 }
 
 </script>
