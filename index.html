@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Examen de Español</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body { font-family: Arial; margin:0; background:#f4f6f9; }
+
+/* LOGIN */
+#inicio, #resultados {
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    height:100vh;
+}
+
+input { padding:10px; margin:10px; width:250px; }
+
+button {
+    padding:10px 20px;
+    background:#2c7be5;
+    color:white; border:none;
+    cursor:pointer;
+}
+
+/* EXAMEN */
+#examen { display:none; }
+
+.container { display:flex; height:100vh; }
+
+/* PDF */
+.left {
+    width:50%;
+    background:black;
+}
+
+.left iframe {
+    width:100%;
+    height:100%;
+    border:none;
+}
+
+/* RESPUESTAS */
+.right {
+    width:50%;
+    overflow-y:scroll;
+    padding:20px;
+    background:white;
+}
+
+.pregunta {
+    margin-bottom:10px;
+    padding:10px;
+    border-bottom:1px solid #ccc;
+}
+
+.timer {
+    position:fixed;
+    top:10px;
+    right:20px;
+    background:black;
+    color:white;
+    padding:10px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="inicio">
+    <h2>Examen de Español</h2>
+    <input id="nombre" placeholder="Usuario">
+    <input id="cuenta" placeholder="Contraseña">
+    <button onclick="iniciarExamen()">Iniciar</button>
+</div>
+
+<!-- EXAMEN -->
+<div id="examen">
+    <div class="timer" id="timer"></div>
+
+    <div class="container">
+
+        <!-- PDF -->
+        <div class="left">
+            <iframe src="examen.pdf"></iframe>
+        </div>
+
+        <!-- RESPUESTAS -->
+        <div class="right" id="respuestas"></div>
+
+    </div>
+</div>
+
+<!-- RESULTADOS -->
+<div id="resultados"></div>
+
+<script>
+
+// 👨‍🎓 ALUMNOS
+const alumnos = [
+    {nombre:"p1", cuenta:"1"},
+    {nombre:"p2", cuenta:"1"},
+    {nombre:"p3", cuenta:"1"}
+];
+
+// CONFIG
+const TOTAL_PREGUNTAS = 120;
+let tiempo = 3600; // 1 hora
+
+let intervalo;
+let nombreAlumno, cuentaAlumno;
+let progresoTexto = "0/120";
+
+// 🚀 INICIAR
+function iniciarExamen() {
+
+    nombreAlumno = document.getElementById("nombre").value.trim();
+    cuentaAlumno = document.getElementById("cuenta").value.trim();
+
+    let alumnoValido = alumnos.find(a =>
+        a.nombre === nombreAlumno && a.cuenta === cuentaAlumno
+    );
+
+    if (!alumnoValido) return alert("Alumno no registrado");
+
+    document.getElementById("inicio").style.display = "none";
+    document.getElementById("examen").style.display = "block";
+
+    generarPreguntas();
+    iniciarTimer();
+    activarSeguridad();
+}
+
+// 📝 GENERAR 120
+function generarPreguntas() {
+
+    let cont = document.getElementById("respuestas");
+    cont.innerHTML = "";
+
+    for (let i = 0; i < TOTAL_PREGUNTAS; i++) {
+
+        cont.innerHTML += `
+        <div class="pregunta">
+            <b>${i+1}</b><br>
+
+            <label><input type="radio" name="p${i}" value="A" onchange="actualizarProgreso()"> A</label>
+            <label><input type="radio" name="p${i}" value="B" onchange="actualizarProgreso()"> B</label>
+            <label><input type="radio" name="p${i}" value="C" onchange="actualizarProgreso()"> C</label>
+            <label><input type="radio" name="p${i}" value="D" onchange="actualizarProgreso()"> D</label>
+        </div>`;
+    }
+
+    cont.innerHTML += `<button onclick="terminarExamen()">Enviar</button>`;
+}
+
+// ⏱️ TIMER
+function iniciarTimer() {
+
+    intervalo = setInterval(() => {
+
+        tiempo--;
+
+        let min = Math.floor(tiempo / 60);
+        let seg = tiempo % 60;
+
+        actualizarProgreso();
+
+        document.getElementById("timer").innerText =
+            `${min}:${seg.toString().padStart(2,'0')} | ${progresoTexto}`;
+
+        if (tiempo <= 0) terminarExamen();
+
+    }, 1000);
+}
+
+// 📊 PROGRESO
+function actualizarProgreso() {
+
+    let c = 0;
+
+    for (let i = 0; i < TOTAL_PREGUNTAS; i++) {
+        if (document.querySelector(`input[name="p${i}"]:checked`)) c++;
+    }
+
+    progresoTexto = `${c}/${TOTAL_PREGUNTAS}`;
+}
+
+// 🔒 SEGURIDAD
+function activarSeguridad() {
+
+    document.addEventListener("contextmenu", e => e.preventDefault());
+
+    document.addEventListener("keydown", e => {
+        if (e.ctrlKey && ['c','v','x'].includes(e.key)) e.preventDefault();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            alert("No cambies de pestaña");
+            terminarExamen(true);
+        }
+    });
+
+    window.onbeforeunload = () => "No puedes salir";
+}
+
+// 🧾 TERMINAR
+function terminarExamen(trampa = false) {
+
+    clearInterval(intervalo);
+
+    document.getElementById("examen").style.display = "none";
+    document.getElementById("resultados").style.display = "block";
+
+    let html = `
+    <h2>Resultados</h2>
+    <p>${nombreAlumno}</p>
+    <p>${cuentaAlumno}</p>
+    <p>Examen finalizado</p>
+    <button onclick="generarPDF()">Descargar PDF</button>
+    `;
+
+    document.getElementById("resultados").innerHTML = html;
+}
+
+// 📄 PDF RESULTADOS
+function generarPDF() {
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.text("Resultados del examen", 10, 10);
+    doc.text(nombreAlumno, 10, 20);
+    doc.text(cuentaAlumno, 10, 30);
+
+    let y = 40;
+
+    for (let i = 0; i < TOTAL_PREGUNTAS; i++) {
+
+        let seleccionado = document.querySelector(`input[name="p${i}"]:checked`);
+        let resp = seleccionado ? seleccionado.value : "-";
+
+        doc.text(`P${i+1}: ${resp}`, 10, y);
+        y += 6;
+
+        if (y > 280) {
+            doc.addPage();
+            y = 20;
+        }
+    }
+
+    doc.save("respuestas.pdf");
+}
+
+</script>
+
+</body>
+</html>
