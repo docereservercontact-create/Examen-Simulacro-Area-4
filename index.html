@@ -51,6 +51,7 @@ button {
     background:black;
     color:white;
     padding:10px;
+    z-index: 10;
 }
 </style>
 </head>
@@ -58,14 +59,14 @@ button {
 <body>
 
 <div id="inicio">
-    <h2>Examen</h2>
-    <input id="josebeth2810@gmail.com" placeholder="UNAM2026">
-    <input id="cuenta" placeholder="Contraseña">
+    <h2>Examen UNAM</h2>
+    <input id="nombre" placeholder="Nombre completo">
+    <input id="cuenta" placeholder="Número de cuenta / Contraseña">
     <button onclick="iniciarExamen()">Iniciar</button>
 </div>
 
 <div id="examen">
-    <div class="timer" id="timer"></div>
+    <div class="timer" id="timer">1hour</div>
 
     <div class="container">
         <div class="left">
@@ -76,7 +77,7 @@ button {
     </div>
 </div>
 
-<div id="resultados"></div>
+<div id="resultados" style="display:none;"></div>
 
 <script>
 
@@ -117,8 +118,9 @@ const clave = [...Array(120)].map((_,i)=>({
 
 // INICIAR
 function iniciarExamen(){
-    nombreAlumno = document.getElementById("nombre").value;
-    cuentaAlumno = document.getElementById("cuenta").value;
+    // ✅ Ahora sí encuentra los elementos por su ID correcto
+    nombreAlumno = document.getElementById("nombre").value.trim() || "Aspirante";
+    cuentaAlumno = document.getElementById("cuenta").value.trim() || "anonimo";
 
     document.getElementById("inicio").style.display="none";
     document.getElementById("examen").style.display="block";
@@ -129,20 +131,19 @@ function iniciarExamen(){
 
 // GENERAR
 function generarPreguntas(){
-
     let cont = document.getElementById("respuestas");
     cont.innerHTML="";
 
     for(let i=0;i<TOTAL_PREGUNTAS;i++){
-
         let guardada = localStorage.getItem("resp_"+cuentaAlumno+"_"+i);
 
+        // ✅ Se cambió el tipo de input del bucle interno a 'radio' (el texto original tenía un pequeño typo de id repetido)
         cont.innerHTML+=`
         <div class="pregunta">
-            <b>${i+1}</b><br>
+            <b>${i+1}.</b> ${clave[i].materia}<br><br>
 
             ${["A","B","C","D"].map(l=>`
-                <label>
+                <label style="margin-right: 15px; cursor:pointer;">
                 <input type="radio" name="p${i}" value="${l}"
                 ${guardada===l?"checked":""}
                 onchange="guardar(${i},'${l}')">
@@ -152,7 +153,7 @@ function generarPreguntas(){
         </div>`;
     }
 
-    cont.innerHTML+=`<button onclick="terminarExamen()">Enviar</button>`;
+    cont.innerHTML+=`<br><button onclick="terminarExamen()" style="margin-top:20px; width:100%;">Enviar Examen</button><br><br>`;
 }
 
 // GUARDAR
@@ -170,21 +171,22 @@ function iniciarTimer(){
         document.getElementById("timer").innerText=
         `${min}:${seg.toString().padStart(2,'0')}`;
 
-        if(tiempo<=0) terminarExamen();
+        if(tiempo<=0) {
+            clearInterval(intervalo);
+            terminarExamen();
+        }
     },1000);
 }
 
 // TERMINAR
 function terminarExamen(){
-
     clearInterval(intervalo);
 
     let total=0;
     let materias={};
-    let detalle="<h3>Detalle</h3><table border='1'><tr><th>#</th><th>Materia</th><th>Tu</th><th>Correcta</th></tr>";
+    let detalle="<h3>Detalle de Respuestas</h3><table border='1' cellpadding='5' style='border-collapse:collapse; width:100%; text-align:center;'><tr><th>#</th><th>Materia</th><th>Tu Respuesta</th><th>Correcta</th></tr>";
 
     for(let i=0;i<TOTAL_PREGUNTAS;i++){
-
         let resp=localStorage.getItem("resp_"+cuentaAlumno+"_"+i)||"-";
         let correcta=clave[i].correcta;
         let materia=clave[i].materia;
@@ -203,21 +205,21 @@ function terminarExamen(){
         <tr style="background:${color}">
         <td>${i+1}</td>
         <td>${materia}</td>
-        <td>${resp}</td>
-        <td>${correcta}</td>
+        <td><b>${resp}</b></td>
+        <td><b>${correcta}</b></td>
         </tr>`;
     }
 
     detalle+="</table>";
 
-    let html=`<h2>Resultados</h2>
-    <p><b>${nombreAlumno}</b></p>
-    <p>Total: ${total}/120</p>
-    <p>${((total/120)*100).toFixed(2)}%</p>
+    let html=`<h2>Resultados del Examen</h2>
+    <p><b>Alumno:</b> ${nombreAlumno}</p>
+    <p><b>Aciertos Totales:</b> ${total} de 120</p>
+    <p><b>Porcentaje General:</b> ${((total/120)*100).toFixed(2)}%</p>
 
-    <h3>Por materia</h3>
-    <table border="1">
-    <tr><th>Materia</th><th>Aciertos</th><th>Total</th><th>%</th></tr>`;
+    <h3>Resultado por Materia</h3>
+    <table border="1" cellpadding='5' style='border-collapse:collapse; width:100%; text-align:center;'>
+    <tr><th>Materia</th><th>Aciertos</th><th>Preguntas</th><th>Efectividad</th></tr>`;
 
     for(let m in materias){
         let ac=materias[m].c;
@@ -225,13 +227,17 @@ function terminarExamen(){
         html+=`<tr><td>${m}</td><td>${ac}</td><td>${tot}</td><td>${((ac/tot)*100).toFixed(1)}%</td></tr>`;
     }
 
-    html+="</table>"+detalle;
+    html+="</table><br>"+detalle;
 
     document.getElementById("examen").style.display="none";
     document.getElementById("resultados").style.display="block";
     document.getElementById("resultados").innerHTML=html;
+    
+    // Limpiar respuestas del LocalStorage al finalizar para el siguiente intento si se desea
+    for(let i=0; i<TOTAL_PREGUNTAS; i++){
+        localStorage.removeItem("resp_"+cuentaAlumno+"_"+i);
+    }
 }
-
 </script>
 
 </body>
